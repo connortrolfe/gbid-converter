@@ -1,10 +1,9 @@
 {
   "name": "gbid-converter",
   "version": "1.0.0",
-  "description": "GBID Materials Converter with Google Sheets and Claude AI",
   "type": "module",
   "scripts": {
-    "build": "echo 'No build step required'"
+    "build": "echo 'Static site - no build needed'"
   },
   "engines": {
     "node": ">=18.0.0"
