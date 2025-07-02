@@ -1,16 +1,12 @@
-// api/sheets.js - Vercel serverless function for Google Sheets proxy
 export default async function handler(req, res) {
-    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    // Only allow POST requests
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -22,13 +18,16 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Sheet ID is required' });
         }
 
-        // For public sheets, we can access them without API key using the /export endpoint
-        // This is simpler than setting up Google API credentials
+        console.log('Attempting to fetch sheet:', sheetId);
+
         const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+        console.log('CSV URL:', csvUrl);
 
         const response = await fetch(csvUrl);
+        console.log('Google Sheets response status:', response.status);
         
         if (!response.ok) {
+            console.error('Google Sheets error:', response.status, response.statusText);
             if (response.status === 404) {
                 throw new Error('Sheet not found. Make sure the sheet is public and the ID is correct.');
             } else if (response.status === 403) {
@@ -39,8 +38,8 @@ export default async function handler(req, res) {
         }
 
         const csvData = await response.text();
+        console.log('CSV data length:', csvData.length);
         
-        // Count rows (subtract 1 for header if present)
         const rows = csvData.trim().split('\n');
         const rowCount = rows.length;
 
