@@ -2,15 +2,9 @@
   "name": "gbid-converter",
   "version": "1.0.0",
   "description": "GBID Materials Converter with Google Sheets and Claude AI",
-  "main": "index.html",
+  "type": "module",
   "scripts": {
-    "dev": "vercel dev",
-    "build": "echo 'No build step required'",
-    "deploy": "vercel --prod"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "vercel": "^32.0.0"
+    "build": "echo 'No build step required'"
   },
   "engines": {
     "node": ">=18.0.0"
