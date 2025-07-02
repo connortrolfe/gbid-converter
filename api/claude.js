@@ -61,6 +61,8 @@ Create the list based on this message:
 ${materialInput}`;
 
         // Call Claude API
+        console.log('Calling Claude API with key:', claudeApiKey ? 'Key exists' : 'No key');
+        
         const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -77,11 +79,13 @@ ${materialInput}`;
                 }]
             })
         });
-
+        
+        console.log('Claude response status:', claudeResponse.status);
+        
         if (!claudeResponse.ok) {
             const errorText = await claudeResponse.text();
-            console.error('Claude API error:', errorText);
-            throw new Error(`Claude API error: ${claudeResponse.status}`);
+            console.error('Claude API error details:', errorText);
+            throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`);
         }
 
         const claudeData = await claudeResponse.json();
