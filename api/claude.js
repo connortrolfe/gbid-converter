@@ -93,7 +93,7 @@ Return only the most important search terms, comma-separated:`;
             'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-            model: 'claude-3-haiku-20240307', // Cheap model for search term extraction
+            model: 'claude-sonnet-4-20250514', // Cheap model for search term extraction
             max_tokens: 200,
             messages: [{ role: 'user', content: searchPrompt }]
         })
@@ -205,7 +205,7 @@ Materials: ${materialInput}`;
             'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-            model: 'claude-3-haiku-20240307',
+            model: 'claude-sonnet-4-20250514',
             max_tokens: 1000, // Reduced since we only want GBID output
             messages: [{ role: 'user', content: convertPrompt }]
         })
