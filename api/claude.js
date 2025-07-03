@@ -59,10 +59,7 @@ export default async function handler(req, res) {
 
         console.log(`📊 Found ${searchResults.length} relevant items`);
 
-        console.log('Pinecone raw results:', searchResults.map(r => ({
-            score: r.score,
-            metadata: r.metadata
-        })));
+        console.log('Pinecone raw results:', JSON.stringify(searchResults, null, 2));
 
         // Filter results by relevance score and limit to top results
         const filteredResults = searchResults
@@ -73,6 +70,8 @@ export default async function handler(req, res) {
 
         // Step 3: Convert search results back to CSV format for Claude
         const relevantData = convertSearchResultsToCSV(filteredResults);
+
+        console.log('CSV sent to Claude:', relevantData);
 
         // Step 4: Use Claude to convert to GBID format
         const claudePrompt = `Database entries:
