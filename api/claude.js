@@ -35,6 +35,12 @@ export default async function handler(req, res) {
         const queryEmbedding = await getEmbedding(materialInput, openaiApiKey);
         
         // Step 2: Search Pinecone for similar items
+        console.log('🔍 Pinecone config:', {
+            environment: pineconeEnvironment,
+            index: pineconeIndex,
+            apiKeyLength: pineconeApiKey ? pineconeApiKey.length : 0
+        });
+        
         const searchResults = await searchPinecone(
             queryEmbedding, 
             pineconeApiKey, 
@@ -127,7 +133,8 @@ async function getEmbedding(text, apiKey) {
 
 // Search Pinecone for similar vectors
 async function searchPinecone(queryVector, apiKey, environment, indexName) {
-    const response = await fetch(`https://${indexName}-${environment}.svc.pinecone.io/query`, {
+    // Try the newer Pinecone API format first
+    let response = await fetch(`https://${indexName}-${environment}.svc.pinecone.io/query`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -141,8 +148,28 @@ async function searchPinecone(queryVector, apiKey, environment, indexName) {
         })
     });
     
+    // If that fails, try the newer Pinecone API format
     if (!response.ok) {
-        throw new Error(`Pinecone search failed: ${response.statusText}`);
+        console.log('Trying newer Pinecone API format...');
+        response = await fetch(`https://api.pinecone.io/indexes/${indexName}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Api-Key': apiKey
+            },
+            body: JSON.stringify({
+                vector: queryVector,
+                topK: 50,
+                includeMetadata: true,
+                includeValues: false
+            })
+        });
+    }
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Pinecone error response:', errorText);
+        throw new Error(`Pinecone search failed: ${response.status} - ${response.statusText}`);
     }
     
     const data = await response.json();
