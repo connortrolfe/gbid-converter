@@ -1,15 +1,13 @@
-// api/claude.js - Tool-calling implementation (if Claude supports tools in your API version)
+// api/claude.js - Research-mode style implementation
 export default async function handler(req, res) {
-    // ... (setup code same as above) ...
-
+    // ... (setup code) ...
+    
     try {
         const { sheetId, materialInput } = req.body;
         const csvData = await fetchGoogleSheetData(sheetId);
         
-        // Create database search tools
-        const tools = createDatabaseTools(csvData);
-        
-        const result = await claudeWithTools(materialInput, tools, claudeApiKey);
+        // Use research-style approach
+        const result = await researchModeConversion(csvData, materialInput, claudeApiKey);
         
         return res.status(200).json({ result });
         
@@ -19,74 +17,65 @@ export default async function handler(req, res) {
     }
 }
 
-function createDatabaseTools(csvData) {
-    const chunks = splitDatabaseIntoChunks(csvData, 150);
-    
-    return [
-        {
-            name: "search_database",
-            description: "Search through database chunks for specific terms or categories",
-            input_schema: {
-                type: "object",
-                properties: {
-                    search_terms: {
-                        type: "array",
-                        items: { type: "string" },
-                        description: "Terms to search for (e.g., ['wire', '#12', 'copper'])"
-                    },
-                    chunk_range: {
-                        type: "object", 
-                        properties: {
-                            start: { type: "integer" },
-                            end: { type: "integer" }
-                        },
-                        description: "Range of chunks to search (optional)"
-                    }
-                },
-                required: ["search_terms"]
-            }
-        },
-        {
-            name: "get_chunk_summary",
-            description: "Get a summary of what types of products are in a chunk range",
-            input_schema: {
-                type: "object",
-                properties: {
-                    chunk_indices: {
-                        type: "array",
-                        items: { type: "integer" },
-                        description: "Which chunks to summarize"
-                    }
-                },
-                required: ["chunk_indices"]
-            }
-        }
-    ];
-}
+async function researchModeConversion(csvData, materialInput, apiKey) {
+    const researchPrompt = `<thinking>
+I need to convert this material request to GBID format: "${materialInput}"
 
-async function claudeWithTools(materialInput, tools, apiKey) {
-    const messages = [
-        {
-            role: 'user',
-            content: `I need to convert these materials to GBID format: "${materialInput}"
+Let me think through this systematically:
 
-You have access to a database search tool. Use it strategically to find the right products.
+1. First, I need to analyze what materials are being requested
+2. Then search through the database strategically 
+3. Find the right GBIDs for each item
+4. Calculate the correct quantities
+5. Format the final output
+
+Let me start by breaking down the request...
+</thinking>
+
+I have access to a complete electrical/construction database. I need to systematically search through it to find the right GBID codes for: "${materialInput}"
+
+Database (${csvData.length} characters):
+${csvData}
+
+I will now think step-by-step through this conversion process:
+
+<research_process>
+Step 1: Analyze the material request
+- What specific products are mentioned?
+- What sizes, materials, colors are specified?  
+- What quantities and measurements are given?
+
+Step 2: Search strategy
+- What terms should I search for in the database?
+- Are there alternate names or synonyms to consider?
+- Should I look for product families or specific items?
+
+Step 3: Database search
+- Scan through relevant sections
+- Look for exact matches first
+- Consider similar products if exact matches not found
+- Check alternate names and special notes columns
+
+Step 4: Quantity calculations  
+- Convert footage to quantities
+- Handle cuts/rolls multiplication
+- Ensure proper formatting
+
+Step 5: Final verification
+- Double-check all matches
+- Verify quantity calculations
+- Ensure proper GBID format
+</research_process>
 
 Rules:
-- Use footage as qty (remove symbols: 200' = 200)
-- Multiply cuts/rolls by length (2 cuts × 400' = qty 800)
-- For sized items, match item + size in GBID field
-- Check alternate names + special notes columns
-- Use standard parts unless specified
-- If not found: GBID=NO BID, QTY=1
+- Footage = qty (200' = 200)
+- Cuts × length = total qty (3 cuts × 100' = 300)
+- Check alternate names and special notes
+- Output format: GBID[tab]QTY
+- If not found: NO BID[tab]1
 
-Format: GBID[tab]QTY
+Now I'll work through this systematically and provide only the final GBID list.`;
 
-Start by analyzing what you need to search for, then use the tools to find relevant products.`
-        }
-    ];
-
-    // This would use Claude's tool calling API (if available)
     const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -95,13 +84,42 @@ Start by analyzing what you need to search for, then use the tools to find relev
             'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 3000,
-            messages: messages,
-            tools: tools // If supported
+            model: 'claude-3-5-sonnet-20241022', // Use the smarter model
+            max_tokens: 4000, // More tokens for research process
+            messages: [{
+                role: 'user',
+                content: researchPrompt
+            }]
         })
     });
 
-    // Handle tool calling responses...
-    // (This would require Claude's tool calling API to be fully implemented)
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract just the final GBID list from the research output
+    const fullResponse = data.content[0].text;
+    const gbidMatch = fullResponse.match(/(?:GBID.*?QTY|Final.*?list|Results?:?)\s*\n((?:[^\n]+\t[^\n]+\n?)+)/i);
+    
+    if (gbidMatch) {
+        return gbidMatch[1].trim();
+    }
+    
+    // Fallback: return the full response if we can't extract cleanly
+    return fullResponse;
+}
+
+// Helper function same as before
+async function fetchGoogleSheetData(sheetId) {
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+    const response = await fetch(csvUrl);
+    
+    if (!response.ok) {
+        throw new Error(`Failed to fetch sheet: ${response.status}`);
+    }
+    
+    return await response.text();
 }
