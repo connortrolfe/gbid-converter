@@ -197,7 +197,9 @@ function convertSearchResultsToCSV(searchResults) {
     
     searchResults.forEach(result => {
         const row = headers.map(header => {
-            const value = result.metadata[header] || '';
+            let value = result.metadata[header];
+            if (value === undefined || value === null) value = '';
+            value = String(value);
             // Escape commas and quotes in CSV
             if (value.includes(',') || value.includes('"')) {
                 return `"${value.replace(/"/g, '""')}"`;
