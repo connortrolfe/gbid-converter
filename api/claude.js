@@ -7,7 +7,7 @@ export default async function handler(req, res) {
         const csvData = await fetchGoogleSheetData(sheetId);
         
         // Use research-style approach
-        const result = await researchModeConversion(csvData, materialInput, claudeApiKey);
+        const result = await researchModeConversion(csvData, materialInput, ApiKey);
         
         return res.status(200).json({ result });
         
