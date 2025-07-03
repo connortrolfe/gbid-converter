@@ -138,7 +138,7 @@ async function getEmbedding(text, apiKey) {
         },
         body: JSON.stringify({
             input: text,
-            model: 'text-embedding-ada-002'
+            model: 'text-embedding-3-large'
         })
     });
     
