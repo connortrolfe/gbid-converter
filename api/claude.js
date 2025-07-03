@@ -30,10 +30,10 @@ export default async function handler(req, res) {
         const claudeApiKey = process.env.CLAUDE_API_KEY;
         const openaiApiKey = process.env.OPENAI_API_KEY;
         const pineconeApiKey = process.env.PINECONE_API_KEY;
-        const pineconeIndex = process.env.PINECONE_INDEX || 'gbid-database';
+        const pineconeHost = process.env.PINECONE_HOST;
 
-        if (!claudeApiKey || !openaiApiKey || !pineconeApiKey) {
-            return res.status(500).json({ error: 'API keys not configured' });
+        if (!claudeApiKey || !openaiApiKey || !pineconeApiKey || !pineconeHost) {
+            return res.status(500).json({ error: 'API keys or Pinecone host not configured' });
         }
 
         console.log('🔍 Starting semantic search for:', materialInput);
@@ -45,14 +45,14 @@ export default async function handler(req, res) {
         
         // Step 2: Search Pinecone for similar items
         console.log('🔍 Pinecone config:', {
-            index: pineconeIndex,
+            host: pineconeHost,
             apiKeyLength: pineconeApiKey ? pineconeApiKey.length : 0
         });
         
         const searchResults = await searchPinecone(
             queryEmbedding, 
             pineconeApiKey, 
-            pineconeIndex
+            pineconeHost
         );
 
         console.log(`📊 Found ${searchResults.length} relevant items`);
@@ -149,10 +149,11 @@ async function getEmbedding(text, apiKey) {
     return data.data[0].embedding;
 }
 
-// Search Pinecone for similar vectors (new API format)
-async function searchPinecone(queryVector, apiKey, indexName) {
-    console.log('Calling Pinecone (new API format)...');
-    const response = await fetch(`https://api.pinecone.io/indexes/${indexName}/query`, {
+// Search Pinecone for similar vectors (serverless index host)
+async function searchPinecone(queryVector, apiKey, pineconeHost) {
+    if (!pineconeHost) throw new Error('PINECONE_HOST not set in environment variables');
+    console.log('Calling Pinecone (serverless host):', pineconeHost);
+    const response = await fetch(`${pineconeHost}/query`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
