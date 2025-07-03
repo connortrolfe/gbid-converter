@@ -149,7 +149,9 @@ async function getEmbedding(text, apiKey) {
 }
 
 // Search Pinecone for similar vectors (serverless index host)
-async function searchPinecone(queryVector, apiKey, pineconeHost) {
+async function searchPinecone(queryVector, apiKey) {
+    // Use the host from the Pinecone dashboard
+    const pineconeHost = process.env.PINECONE_HOST; // Set this in your env vars!
     if (!pineconeHost) throw new Error('PINECONE_HOST not set in environment variables');
     console.log('Calling Pinecone (serverless host):', pineconeHost);
     const response = await fetch(`${pineconeHost}/query`, {
