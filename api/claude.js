@@ -51,8 +51,7 @@ export default async function handler(req, res) {
         
         const searchResults = await searchPinecone(
             queryEmbedding, 
-            pineconeApiKey, 
-            pineconeHost
+            pineconeApiKey
         );
 
         console.log(`📊 Found ${searchResults.length} relevant items`);
