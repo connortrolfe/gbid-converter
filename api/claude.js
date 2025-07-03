@@ -59,20 +59,27 @@ export default async function handler(req, res) {
 
         console.log(`📊 Found ${searchResults.length} relevant items`);
 
+        // Filter results by relevance score and limit to top results
+        const filteredResults = searchResults
+            .filter(result => result.score > 0.7) // Only include relevant results
+            .slice(0, 8); // Limit to top 8 most relevant
+
+        console.log(`📊 Using ${filteredResults.length} filtered items (score > 0.7)`);
+
         // Step 3: Convert search results back to CSV format for Claude
-        const relevantData = convertSearchResultsToCSV(searchResults);
+        const relevantData = convertSearchResultsToCSV(filteredResults);
 
         // Step 4: Use Claude to convert to GBID format
-        const claudePrompt = `Relevant database entries:
+        const claudePrompt = `Database entries:
 ${relevantData}
 
-Give me a list of GBIDs based on the following format, using my GBID database as data. If there is a footage instead of a qty, input the footage in it’s place (do not include measurement symbols - for example, 200' should print out as just 200). If there are multiple "cuts" or “rolls” of an item (namely wire), multiply the length by the amount of cuts/rolls to get the final qty (for example, 2 cuts of 400' of wire would become qty 800, 2 rolls of 500’ would be qty 1000). If an item has a size, such as 2" rigid conduit, search for the item first, then the size within the GBID field. Only write notes at the end of the message, do not interrupt the list. Assume standard for all parts unless specified. Use the "alternate names" column to find the closest name for items with names that do not match. Read the special notes column for all items before output to determine which part numbers are usually standard or if there are any special instructions. Read through every line and every column regardless of whether or not the item is present in the request. Search online for alternate or slang terms if necessary. At the end, double check your work and ensure no mistakes were made.
+Convert materials to GBID format:
+- Footage = qty (no symbols: 200' = 200)
+- Cuts/rolls: multiply × length (2 cuts × 400' = qty 800)
+- Check alternate names, special notes
+- Not found = GBID: NO BID, QTY: 1
 
-GBID	QTY
-GBID	QTY
-GBID	QTY
-
-Create the list based on this message:
+Format: GBID[tab]QTY
 
 Materials: ${materialInput}`;
 
@@ -165,7 +172,7 @@ async function searchPinecone(queryVector, apiKey) {
         },
         body: JSON.stringify({
             vector: queryVector,
-            topK: 50,
+            topK: 10,
             includeMetadata: true,
             includeValues: false
         })
@@ -188,15 +195,14 @@ function convertSearchResultsToCSV(searchResults) {
         return 'No relevant items found';
     }
     
-    // Get headers from first result metadata
-    const firstResult = searchResults[0];
-    const headers = Object.keys(firstResult.metadata).filter(key => key !== 'searchableText');
+    // Define essential columns only to reduce token usage
+    const essentialColumns = ['GBID', 'Description', 'alternate_names', 'special_notes'];
     
-    // Create CSV
-    const csvRows = [headers.join(',')]; // Header row
+    // Create CSV with only essential columns
+    const csvRows = [essentialColumns.join(',')]; // Header row
     
     searchResults.forEach(result => {
-        const row = headers.map(header => {
+        const row = essentialColumns.map(header => {
             let value = result.metadata[header];
             if (value === undefined || value === null) value = '';
             value = String(value);
