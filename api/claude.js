@@ -12,11 +12,19 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { materialInput } = req.body;
+        const { materialInput, sheetId, sheetRange } = req.body;
 
         if (!materialInput) {
             return res.status(400).json({ error: 'Material input is required' });
         }
+
+        // Log the request for debugging
+        console.log('📝 Request received:', {
+            hasMaterialInput: !!materialInput,
+            hasSheetId: !!sheetId,
+            hasSheetRange: !!sheetRange,
+            materialInputLength: materialInput.length
+        });
 
         // Get API keys from environment
         const claudeApiKey = process.env.CLAUDE_API_KEY;
@@ -32,7 +40,9 @@ export default async function handler(req, res) {
         console.log('🔍 Starting semantic search for:', materialInput);
 
         // Step 1: Convert material input to embedding
+        console.log('📡 Calling OpenAI for embedding...');
         const queryEmbedding = await getEmbedding(materialInput, openaiApiKey);
+        console.log('✅ Embedding received, length:', queryEmbedding.length);
         
         // Step 2: Search Pinecone for similar items
         console.log('🔍 Pinecone config:', {
@@ -103,6 +113,14 @@ Materials: ${materialInput}`;
 
     } catch (error) {
         console.error('Error:', error);
+        
+        // Check if it's a fetch error
+        if (error.message.includes('fetch failed') || error.message.includes('fetch')) {
+            return res.status(500).json({ 
+                error: 'Network error: Unable to connect to external services. Please check your API keys and try again.' 
+            });
+        }
+        
         return res.status(500).json({ 
             error: error.message || 'Internal server error' 
         });
