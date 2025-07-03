@@ -1,125 +1,178 @@
-// api/claude.js - Research-mode style implementation
 export default async function handler(req, res) {
-    // ... (setup code) ...
-    
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     try {
-        const { sheetId, materialInput } = req.body;
-        const csvData = await fetchGoogleSheetData(sheetId);
+        const { materialInput } = req.body;
+
+        if (!materialInput) {
+            return res.status(400).json({ error: 'Material input is required' });
+        }
+
+        // Get API keys from environment
+        const claudeApiKey = process.env.CLAUDE_API_KEY;
+        const openaiApiKey = process.env.OPENAI_API_KEY;
+        const pineconeApiKey = process.env.PINECONE_API_KEY;
+        const pineconeEnvironment = process.env.PINECONE_ENVIRONMENT;
+        const pineconeIndex = process.env.PINECONE_INDEX || 'gbid-database';
+
+        if (!claudeApiKey || !openaiApiKey || !pineconeApiKey) {
+            return res.status(500).json({ error: 'API keys not configured' });
+        }
+
+        console.log('🔍 Starting semantic search for:', materialInput);
+
+        // Step 1: Convert material input to embedding
+        const queryEmbedding = await getEmbedding(materialInput, openaiApiKey);
         
-        // Use research-style approach
-        const result = await researchModeConversion(csvData, materialInput, ApiKey);
+        // Step 2: Search Pinecone for similar items
+        const searchResults = await searchPinecone(
+            queryEmbedding, 
+            pineconeApiKey, 
+            pineconeEnvironment, 
+            pineconeIndex
+        );
+
+        console.log(`📊 Found ${searchResults.length} relevant items`);
+
+        // Step 3: Convert search results back to CSV format for Claude
+        const relevantData = convertSearchResultsToCSV(searchResults);
+
+        // Step 4: Use Claude to convert to GBID format
+        const claudePrompt = `Relevant database entries:
+${relevantData}
+
+Convert materials to GBID format:
+- Footage = qty (no symbols: 200' = 200)
+- Cuts/rolls: multiply × length (2 cuts × 400' = qty 800)
+- Check alternate names, special notes
+- Not found = GBID: NO BID, QTY: 1
+
+Format: GBID[tab]QTY
+
+Materials: ${materialInput}`;
+
+        console.log('🤖 Calling Claude for GBID conversion...');
+
+        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': claudeApiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 2000,
+                messages: [{
+                    role: 'user',
+                    content: claudePrompt
+                }]
+            })
+        });
+
+        if (!claudeResponse.ok) {
+            const errorText = await claudeResponse.text();
+            throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`);
+        }
+
+        const claudeData = await claudeResponse.json();
         
-        return res.status(200).json({ result });
-        
+        return res.status(200).json({
+            result: claudeData.content[0].text,
+            debug: {
+                itemsFound: searchResults.length,
+                searchScores: searchResults.map(r => r.score)
+            }
+        });
+
     } catch (error) {
         console.error('Error:', error);
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ 
+            error: error.message || 'Internal server error' 
+        });
     }
 }
 
-async function researchModeConversion(csvData, materialInput, apiKey) {
-    const researchPrompt = `<thinking>
-I need to convert this material request to GBID format: "${materialInput}"
-
-Let me think through this systematically:
-
-1. First, I need to analyze what materials are being requested
-2. Then search through the database strategically 
-3. Find the right GBIDs for each item
-4. Calculate the correct quantities
-5. Format the final output
-
-Let me start by breaking down the request...
-</thinking>
-
-I have access to a complete electrical/construction database. I need to systematically search through it to find the right GBID codes for: "${materialInput}"
-
-Database (${csvData.length} characters):
-${csvData}
-
-I will now think step-by-step through this conversion process:
-
-<research_process>
-Step 1: Analyze the material request
-- What specific products are mentioned?
-- What sizes, materials, colors are specified?  
-- What quantities and measurements are given?
-
-Step 2: Search strategy
-- What terms should I search for in the database?
-- Are there alternate names or synonyms to consider?
-- Should I look for product families or specific items?
-
-Step 3: Database search
-- Scan through relevant sections
-- Look for exact matches first
-- Consider similar products if exact matches not found
-- Check alternate names and special notes columns
-
-Step 4: Quantity calculations  
-- Convert footage to quantities
-- Handle cuts/rolls multiplication
-- Ensure proper formatting
-
-Step 5: Final verification
-- Double-check all matches
-- Verify quantity calculations
-- Ensure proper GBID format
-</research_process>
-
-Rules:
-- Footage = qty (200' = 200)
-- Cuts × length = total qty (3 cuts × 100' = 300)
-- Check alternate names and special notes
-- Output format: GBID[tab]QTY
-- If not found: NO BID[tab]1
-
-Now I'll work through this systematically and provide only the final GBID list.`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+// Get embedding from OpenAI
+async function getEmbedding(text, apiKey) {
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01'
+            'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            model: 'claude-3-5-sonnet-20241022', // Use the smarter model
-            max_tokens: 4000, // More tokens for research process
-            messages: [{
-                role: 'user',
-                content: researchPrompt
-            }]
+            input: text,
+            model: 'text-embedding-ada-002'
         })
     });
-
+    
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Claude API error: ${response.status} - ${errorText}`);
+        throw new Error(`OpenAI embedding failed: ${response.statusText}`);
     }
-
+    
     const data = await response.json();
-    
-    // Extract just the final GBID list from the research output
-    const fullResponse = data.content[0].text;
-    const gbidMatch = fullResponse.match(/(?:GBID.*?QTY|Final.*?list|Results?:?)\s*\n((?:[^\n]+\t[^\n]+\n?)+)/i);
-    
-    if (gbidMatch) {
-        return gbidMatch[1].trim();
-    }
-    
-    // Fallback: return the full response if we can't extract cleanly
-    return fullResponse;
+    return data.data[0].embedding;
 }
 
-// Helper function same as before
-async function fetchGoogleSheetData(sheetId) {
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
-    const response = await fetch(csvUrl);
+// Search Pinecone for similar vectors
+async function searchPinecone(queryVector, apiKey, environment, indexName) {
+    const response = await fetch(`https://${indexName}-${environment}.svc.pinecone.io/query`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Api-Key': apiKey
+        },
+        body: JSON.stringify({
+            vector: queryVector,
+            topK: 50, // Get top 50 most similar items
+            includeMetadata: true,
+            includeValues: false
+        })
+    });
     
     if (!response.ok) {
-        throw new Error(`Failed to fetch sheet: ${response.status}`);
+        throw new Error(`Pinecone search failed: ${response.statusText}`);
     }
     
-    return await response.text();
+    const data = await response.json();
+    return data.matches || [];
+}
+
+// Convert Pinecone search results back to CSV format
+function convertSearchResultsToCSV(searchResults) {
+    if (searchResults.length === 0) {
+        return 'No relevant items found';
+    }
+    
+    // Get headers from first result metadata
+    const firstResult = searchResults[0];
+    const headers = Object.keys(firstResult.metadata).filter(key => key !== 'searchableText');
+    
+    // Create CSV
+    const csvRows = [headers.join(',')]; // Header row
+    
+    searchResults.forEach(result => {
+        const row = headers.map(header => {
+            const value = result.metadata[header] || '';
+            // Escape commas and quotes in CSV
+            if (value.includes(',') || value.includes('"')) {
+                return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+        });
+        csvRows.push(row.join(','));
+    });
+    
+    return csvRows.join('\n');
 }
