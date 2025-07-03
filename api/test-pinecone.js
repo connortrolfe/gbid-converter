@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
         // Try a simple query
         const url = `${pineconeHost}/query`;
-        const testVector = [0,0,0,0,0];
+        const testVector = Array(3072).fill(0);
         let pineconeResponse, pineconeData, errorText;
         try {
             pineconeResponse = await fetch(url, {
