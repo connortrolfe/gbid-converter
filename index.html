@@ -260,6 +260,7 @@
                 </div>
                 <button onclick="testConnection()" class="convert-btn" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">Test Connection</button>
                 <button onclick="testAPI()" class="convert-btn" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); margin-left: 10px;">Test API</button>
+                <button onclick="testPinecone()" class="convert-btn" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); margin-left: 10px;">Test Pinecone Connection</button>
                 <div id="connectionStatus"></div>
             </div>
 
@@ -378,6 +379,41 @@ black, red, white wire"></textarea>
                 }
             } catch (error) {
                 statusDiv.innerHTML = `<div class="status error">❌ API Test failed: ${error.message}</div>`;
+            }
+        }
+
+        // Test Pinecone connection via our API
+        async function testPinecone() {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing Pinecone connection...</div>';
+
+            try {
+                const response = await fetch('/api/test-pinecone', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                let statusHtml = '';
+                if (data.status === 'success') {
+                    statusHtml += '<div class="status success">✅ Pinecone Test: Success</div>';
+                } else {
+                    statusHtml += `<div class="status error">❌ Pinecone Test: ${data.status || 'Error'}</div>`;
+                }
+                statusHtml += '<div style="margin-top: 10px; font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 10px; border-radius: 5px;">';
+                statusHtml += `<div>HTTP Status: ${data.httpStatus || 'N/A'}</div>`;
+                if (data.errorText) statusHtml += `<div>Error: ${data.errorText}</div>`;
+                if (data.error) statusHtml += `<div>Error: ${data.error}</div>`;
+                if (data.pineconeData) statusHtml += `<div>Response: ${JSON.stringify(data.pineconeData)}</div>`;
+                statusHtml += `<div>URL: ${data.url}</div>`;
+                statusHtml += `<div>Index: ${data.pineconeIndex}</div>`;
+                statusHtml += `<div>API Key Preview: ${data.pineconeApiKeyPreview}</div>`;
+                statusHtml += '</div>';
+                statusDiv.innerHTML = statusHtml;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Pinecone Test failed: ${error.message}</div>`;
             }
         }
 
