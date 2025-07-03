@@ -259,6 +259,7 @@
                     </div>
                 </div>
                 <button onclick="testConnection()" class="convert-btn" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);">Test Connection</button>
+                <button onclick="testAPI()" class="convert-btn" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); margin-left: 10px;">Test API</button>
                 <div id="connectionStatus"></div>
             </div>
 
@@ -342,6 +343,41 @@ black, red, white wire"></textarea>
                 }
             } catch (error) {
                 statusDiv.innerHTML = `<div class="status error">❌ Connection failed: ${error.message}</div>`;
+            }
+        }
+
+        // Test API connectivity and environment variables
+        async function testAPI() {
+            const statusDiv = document.getElementById('connectionStatus');
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing API connectivity...</div>';
+
+            try {
+                const response = await fetch('/api/test', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    let statusHtml = '<div class="status success">✅ API Test Results:</div>';
+                    statusHtml += '<div style="margin-top: 10px; font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 10px; border-radius: 5px;">';
+                    statusHtml += `<div>Status: ${data.status}</div>`;
+                    statusHtml += `<div>Fetch Test: ${data.fetchTest}</div>`;
+                    statusHtml += '<div>Environment Variables:</div>';
+                    Object.entries(data.environment).forEach(([key, value]) => {
+                        statusHtml += `<div>  ${key}: ${value ? '✅ Set' : '❌ Missing'}</div>`;
+                    });
+                    statusHtml += `<div>Timestamp: ${data.timestamp}</div>`;
+                    statusHtml += '</div>';
+                    statusDiv.innerHTML = statusHtml;
+                } else {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ API Test failed: ${error.message}</div>`;
             }
         }
 
