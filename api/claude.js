@@ -30,7 +30,6 @@ export default async function handler(req, res) {
         const claudeApiKey = process.env.CLAUDE_API_KEY;
         const openaiApiKey = process.env.OPENAI_API_KEY;
         const pineconeApiKey = process.env.PINECONE_API_KEY;
-        const pineconeEnvironment = process.env.PINECONE_ENVIRONMENT;
         const pineconeIndex = process.env.PINECONE_INDEX || 'gbid-database';
 
         if (!claudeApiKey || !openaiApiKey || !pineconeApiKey) {
@@ -46,7 +45,6 @@ export default async function handler(req, res) {
         
         // Step 2: Search Pinecone for similar items
         console.log('🔍 Pinecone config:', {
-            environment: pineconeEnvironment,
             index: pineconeIndex,
             apiKeyLength: pineconeApiKey ? pineconeApiKey.length : 0
         });
@@ -54,7 +52,6 @@ export default async function handler(req, res) {
         const searchResults = await searchPinecone(
             queryEmbedding, 
             pineconeApiKey, 
-            pineconeEnvironment, 
             pineconeIndex
         );
 
@@ -152,11 +149,10 @@ async function getEmbedding(text, apiKey) {
     return data.data[0].embedding;
 }
 
-// Search Pinecone for similar vectors
-async function searchPinecone(queryVector, apiKey, environment, indexName) {
-    console.log('Calling Pinecone...');
-    // Try the newer Pinecone API format first
-    let response = await fetch(`https://${indexName}-${environment}.svc.pinecone.io/query`, {
+// Search Pinecone for similar vectors (new API format)
+async function searchPinecone(queryVector, apiKey, indexName) {
+    console.log('Calling Pinecone (new API format)...');
+    const response = await fetch(`https://api.pinecone.io/indexes/${indexName}/query`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -164,36 +160,18 @@ async function searchPinecone(queryVector, apiKey, environment, indexName) {
         },
         body: JSON.stringify({
             vector: queryVector,
-            topK: 50, // Get top 50 most similar items
+            topK: 50,
             includeMetadata: true,
             includeValues: false
         })
     });
-    
-    // If that fails, try the newer Pinecone API format
-    if (!response.ok) {
-        console.log('Trying newer Pinecone API format...');
-        response = await fetch(`https://api.pinecone.io/indexes/${indexName}/query`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Api-Key': apiKey
-            },
-            body: JSON.stringify({
-                vector: queryVector,
-                topK: 50,
-                includeMetadata: true,
-                includeValues: false
-            })
-        });
-    }
-    
+
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Pinecone error response:', errorText);
         throw new Error(`Pinecone search failed: ${response.status} - ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     console.log('Pinecone success');
     return data.matches || [];
