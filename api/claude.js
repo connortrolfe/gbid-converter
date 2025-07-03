@@ -113,6 +113,7 @@ Materials: ${materialInput}`;
 
     } catch (error) {
         console.error('Error:', error);
+        console.error('Error stack:', error.stack);
         
         // Check if it's a fetch error
         if (error.message.includes('fetch failed') || error.message.includes('fetch')) {
@@ -129,6 +130,7 @@ Materials: ${materialInput}`;
 
 // Get embedding from OpenAI
 async function getEmbedding(text, apiKey) {
+    console.log('Calling OpenAI...');
     const response = await fetch('https://api.openai.com/v1/embeddings', {
         method: 'POST',
         headers: {
@@ -146,11 +148,13 @@ async function getEmbedding(text, apiKey) {
     }
     
     const data = await response.json();
+    console.log('OpenAI success');
     return data.data[0].embedding;
 }
 
 // Search Pinecone for similar vectors
 async function searchPinecone(queryVector, apiKey, environment, indexName) {
+    console.log('Calling Pinecone...');
     // Try the newer Pinecone API format first
     let response = await fetch(`https://${indexName}-${environment}.svc.pinecone.io/query`, {
         method: 'POST',
@@ -191,6 +195,7 @@ async function searchPinecone(queryVector, apiKey, environment, indexName) {
     }
     
     const data = await response.json();
+    console.log('Pinecone success');
     return data.matches || [];
 }
 
