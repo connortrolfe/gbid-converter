@@ -9,13 +9,13 @@ export default async function handler(req, res) {
 
     try {
         const pineconeApiKey = process.env.PINECONE_API_KEY;
-        const pineconeIndex = process.env.PINECONE_INDEX;
-        if (!pineconeApiKey || !pineconeIndex) {
-            return res.status(500).json({ error: 'PINECONE_API_KEY or PINECONE_INDEX not set' });
+        const pineconeHost = process.env.PINECONE_HOST;
+        if (!pineconeApiKey || !pineconeHost) {
+            return res.status(500).json({ error: 'PINECONE_API_KEY or PINECONE_HOST not set' });
         }
 
         // Try a simple query
-        const url = `https://api.pinecone.io/indexes/${pineconeIndex}/query`;
+        const url = `${pineconeHost}/query`;
         const testVector = [0,0,0,0,0];
         let pineconeResponse, pineconeData, errorText;
         try {
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
                 status: 'fetch_failed',
                 error: err.message,
                 url,
-                pineconeIndex,
+                pineconeHost,
                 pineconeApiKeyPreview: pineconeApiKey.slice(0, 6) + '...'
             });
         }
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
             errorText,
             pineconeData,
             url,
-            pineconeIndex,
+            pineconeHost,
             pineconeApiKeyPreview: pineconeApiKey.slice(0, 6) + '...'
         });
     } catch (error) {
