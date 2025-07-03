@@ -61,10 +61,10 @@ export default async function handler(req, res) {
 
         // Filter results by relevance score and limit to top results
         const filteredResults = searchResults
-            .filter(result => result.score > 0.7) // Only include relevant results
-            .slice(0, 8); // Limit to top 8 most relevant
+            .filter(result => result.score > 0.5) // Lower threshold
+            .slice(0, 15); // Allow more results
 
-        console.log(`📊 Using ${filteredResults.length} filtered items (score > 0.7)`);
+        console.log(`📊 Using ${filteredResults.length} filtered items (score > 0.5)`);
 
         // Step 3: Convert search results back to CSV format for Claude
         const relevantData = convertSearchResultsToCSV(filteredResults);
