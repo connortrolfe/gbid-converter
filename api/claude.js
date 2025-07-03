@@ -200,7 +200,7 @@ function convertSearchResultsToCSV(searchResults) {
     }
     
     // Define essential columns only to reduce token usage
-    const essentialColumns = ['GBID', 'Description', 'alternate_names', 'special_notes'];
+    const essentialColumns = ['text'];
     
     // Create CSV with only essential columns
     const csvRows = [essentialColumns.join(',')]; // Header row
