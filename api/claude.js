@@ -182,16 +182,18 @@ function filterDatabaseByTerms(csvData, searchTerms) {
 
 // Stage 3: Convert to GBID with filtered data
 async function convertToGBID(filteredData, materialInput, apiKey) {
-    const convertPrompt = `Database entries: ${filteredData}
+    const convertPrompt = `Database: ${filteredData}
 
-Convert materials to GBID format:
-- Footage = qty (no symbols: 200' = 200)
-- Cuts/rolls: multiply × length (2 cuts × 400' = qty 800)
-- For sized items: match item + size in GBID field
-- Check alternate names, special notes columns
-- Not found = GBID: NO BID, QTY: 1
+Convert to GBID format. OUTPUT ONLY THE GBID LIST - NO EXPLANATIONS OR DATABASE CONTENT.
 
-Format: GBID[tab]QTY
+Rules:
+- Footage = qty (200' = 200)
+- Cuts × length = qty (2 cuts × 400' = 800)
+- Not found = NO BID, qty 1
+
+ONLY OUTPUT THIS FORMAT:
+GBID    QTY
+GBID    QTY
 
 Materials: ${materialInput}`;
 
@@ -204,7 +206,7 @@ Materials: ${materialInput}`;
         },
         body: JSON.stringify({
             model: 'claude-3-haiku-20240307',
-            max_tokens: 2000,
+            max_tokens: 1000, // Reduced since we only want GBID output
             messages: [{ role: 'user', content: convertPrompt }]
         })
     });
