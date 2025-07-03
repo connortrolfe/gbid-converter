@@ -66,13 +66,13 @@ export default async function handler(req, res) {
         const claudePrompt = `Relevant database entries:
 ${relevantData}
 
-Convert materials to GBID format:
-- Footage = qty (no symbols: 200' = 200)
-- Cuts/rolls: multiply × length (2 cuts × 400' = qty 800)
-- Check alternate names, special notes
-- Not found = GBID: NO BID, QTY: 1
+Give me a list of GBIDs based on the following format, using my GBID database as data. If there is a footage instead of a qty, input the footage in it’s place (do not include measurement symbols - for example, 200' should print out as just 200). If there are multiple "cuts" or “rolls” of an item (namely wire), multiply the length by the amount of cuts/rolls to get the final qty (for example, 2 cuts of 400' of wire would become qty 800, 2 rolls of 500’ would be qty 1000). If an item has a size, such as 2" rigid conduit, search for the item first, then the size within the GBID field. Only write notes at the end of the message, do not interrupt the list. Assume standard for all parts unless specified. Use the "alternate names" column to find the closest name for items with names that do not match. Read the special notes column for all items before output to determine which part numbers are usually standard or if there are any special instructions. Read through every line and every column regardless of whether or not the item is present in the request. Search online for alternate or slang terms if necessary. At the end, double check your work and ensure no mistakes were made.
 
-Format: GBID[tab]QTY
+GBID	QTY
+GBID	QTY
+GBID	QTY
+
+Create the list based on this message:
 
 Materials: ${materialInput}`;
 
