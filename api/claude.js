@@ -42,6 +42,9 @@ export default async function handler(req, res) {
         console.log('📡 Calling OpenAI for embedding...');
         const queryEmbedding = await getEmbedding(materialInput, openaiApiKey);
         console.log('✅ Embedding received, length:', queryEmbedding.length);
+        // Debug: print type and sample of embedding
+        console.log('🔬 Embedding type:', Array.isArray(queryEmbedding) ? 'Array' : typeof queryEmbedding);
+        console.log('🔬 Embedding sample:', queryEmbedding.slice(0, 10));
         
         // Step 2: Search Pinecone for similar items
         console.log('🔍 Pinecone config:', {
