@@ -1,0 +1,11 @@
+{
+  "name": "gbid-converter",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
