@@ -37,57 +37,98 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'OpenAI API key not configured' });
         }
 
-        console.log('Getting embeddings for:', materialInput);
-        const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        // Step 0: Use Claude to split the input into discrete items
+        const splitPrompt = `Given the following request, list each distinct material or item as a separate line, one per line, with no extra text or explanation. Only output the list, no commentary.\n\nRequest:\n${materialInput}`;
+        const splitPayload = {
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1024,
+            system: [
+                {
+                    type: 'text',
+                    text: 'You are a helpful assistant for parsing material lists.',
+                    cache_control: { type: 'ephemeral' }
+                }
+            ],
+            messages: [
+                {
+                    role: 'user',
+                    content: splitPrompt
+                }
+            ]
+        };
+        console.log('Calling Claude to split input into items...');
+        const splitResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${openaiApiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'x-api-key': claudeApiKey,
+                'anthropic-version': '2023-06-01'
             },
-            body: JSON.stringify({
-                model: 'text-embedding-3-large',
-                input: materialInput
-            })
+            body: JSON.stringify(splitPayload)
         });
-
-        if (!embeddingResponse.ok) {
-            const errorText = await embeddingResponse.text();
-            throw new Error(`OpenAI embedding error: ${embeddingResponse.status} - ${errorText}`);
+        if (!splitResponse.ok) {
+            const errorText = await splitResponse.text();
+            throw new Error(`Claude split error: ${splitResponse.status} - ${errorText}`);
         }
-
-        const embeddingData = await embeddingResponse.json();
-        const embedding = embeddingData.data[0].embedding;
-
-        // Step 2: Query Pinecone for similar items
-        console.log('Querying Pinecone for similar items');
-        const pineconeQueryResponse = await fetch(`https://${pineconeHost}/query`, {
-            method: 'POST',
-            headers: {
-                'Api-Key': pineconeApiKey,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                vector: embedding,
-                topK: 50, // Get top 50 most similar items
-                includeMetadata: true,
-                includeValues: false
-            })
+        const splitData = await splitResponse.json();
+        let splitText = splitData.content[0].text || '';
+        // Split into lines, trim, and filter empty
+        const lines = splitText.split('\n').map(l => l.trim()).filter(l => l);
+        console.log('Parsed lines from Claude:', lines);
+        let allMatches = [];
+        for (const line of lines) {
+            console.log('Getting embedding for line:', line);
+            const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'text-embedding-3-large',
+                    input: line
+                })
+            });
+            if (!embeddingResponse.ok) {
+                const errorText = await embeddingResponse.text();
+                throw new Error(`OpenAI embedding error: ${embeddingResponse.status} - ${errorText}`);
+            }
+            const embeddingData = await embeddingResponse.json();
+            const embedding = embeddingData.data[0].embedding;
+            // Query Pinecone for this line
+            console.log('Querying Pinecone for line:', line);
+            const pineconeQueryResponse = await fetch(`https://${pineconeHost}/query`, {
+                method: 'POST',
+                headers: {
+                    'Api-Key': pineconeApiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    vector: embedding,
+                    topK: 50,
+                    includeMetadata: true,
+                    includeValues: false
+                })
+            });
+            if (!pineconeQueryResponse.ok) {
+                const errorText = await pineconeQueryResponse.text();
+                throw new Error(`Pinecone query error: ${pineconeQueryResponse.status} - ${errorText}`);
+            }
+            const pineconeData = await pineconeQueryResponse.json();
+            const matches = pineconeData.matches || [];
+            allMatches.push(...matches);
+        }
+        // Deduplicate matches by vector id
+        const seen = new Set();
+        const dedupedMatches = allMatches.filter(match => {
+            if (seen.has(match.id)) return false;
+            seen.add(match.id);
+            return true;
         });
-
-        if (!pineconeQueryResponse.ok) {
-            const errorText = await pineconeQueryResponse.text();
-            throw new Error(`Pinecone query error: ${pineconeQueryResponse.status} - ${errorText}`);
-        }
-
-        const pineconeData = await pineconeQueryResponse.json();
-        const matches = pineconeData.matches || [];
-
-        console.log(`Found ${matches.length} similar items in Pinecone`);
-
-        // Step 3: Convert Pinecone results to CSV format
+        console.log(`Merged and deduped to ${dedupedMatches.length} unique matches`);
+        // Step 3: Convert deduped Pinecone results to CSV format
         let csvData = 'GBID,GBID Template,Description,Properties,Alternate Names,Special Notes\n';
-        
-        matches.forEach(match => {
+        dedupedMatches.forEach(match => {
             const metadata = match.metadata || {};
             const gbid = metadata.gbid || '';
             const gbidTemplate = metadata.gbidTemplate || '';
@@ -95,7 +136,6 @@ export default async function handler(req, res) {
             const properties = metadata.properties || '';
             const alternateNames = metadata.alternateNames || '';
             const specialNotes = metadata.specialNotes || '';
-            
             // Escape CSV values (handle commas and quotes)
             const escapeCsv = (value) => {
                 if (typeof value !== 'string') return '';
@@ -104,10 +144,8 @@ export default async function handler(req, res) {
                 }
                 return value;
             };
-
             csvData += `${escapeCsv(gbid)},${escapeCsv(gbidTemplate)},${escapeCsv(description)},${escapeCsv(properties)},${escapeCsv(alternateNames)},${escapeCsv(specialNotes)}\n`;
         });
-
         console.log('Claude CSV Data:\n', csvData);
 
         // Step 4: Prepare Claude API request with Pinecone data
@@ -183,7 +221,7 @@ GBID[tab]QTY
         return res.status(200).json({
             result: claudeData.content[0].text,
             usage: claudeData.usage,
-            pineconeMatches: matches.length,
+            pineconeMatches: dedupedMatches.length,
             csvData: csvData // Include for debugging if needed
         });
     } catch (error) {
