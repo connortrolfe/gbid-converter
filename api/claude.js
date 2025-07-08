@@ -117,7 +117,8 @@ DATABASE (CSV format):
 ${csvData}
 
 INSTRUCTIONS:
-- Give me a list of GBIDs based on the following format, using my GBID database as data.
+- For each requested item, first think step by step about which items in the database are the best matches. Consider alternate names, templates, and all relevant columns.
+- Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
 - If the item has a static 'gbid', use it directly.
