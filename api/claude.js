@@ -111,89 +111,19 @@ export default async function handler(req, res) {
         console.log('Claude CSV Data:\n', csvData);
 
         // Step 4: Prepare Claude API request with Pinecone data
-        const systemPrompt = `<thinking>
-I am a GBID converter and need to be extremely systematic and accurate. Let me establish my approach:
-
-1. ANALYSIS PHASE:
-   - First, I'll carefully parse the material request to identify each distinct item
-   - Note quantities, sizes, materials, colors, and any specifications
-   - Identify any ambiguous terms that need careful interpretation
-   - Plan my search strategy for each item
-
-2. DATABASE SEARCH STRATEGY:
-   - Search broadly first, then narrow down
-   - Check for exact product name matches
-   - Look for alternate names and templates
-   - Examine gbidTemplate fields for dynamic generation
-   - Check static gbid fields for direct matches
-   - Review special notes for template strings and mapping tables
-   - Consider industry standard terms and slang
-
-3. GBID GENERATION RULES:
-   - If gbidTemplate exists: substitute requested sizes/values into template
-   - If static gbid exists: use it directly
-   - If GBID field says 'TEMPLATE': look in special notes for template string
-   - Apply any mapping tables from special notes (e.g., color abbreviations)
-   - Ensure proper formatting with asterisks and brackets as shown in examples
-
-4. QUANTITY CALCULATION METHODOLOGY:
-   - Footage becomes qty (remove symbols: 200' = 200)
-   - Cuts/rolls: multiply by length (2 cuts × 400' = 800 total)
-   - Boxes: check properties column for qty per box, then multiply
-   - Verify all calculations are mathematically correct
-
-5. QUALITY ASSURANCE CHECKS:
-   - Double-check each match against original request
-   - Verify all quantity calculations
-   - Ensure GBID format follows templates correctly
-   - Confirm I haven't missed any requested items
-   - Use NO BID only after exhaustive search
-
-Let me now process this request with extreme care and attention to detail...
-</thinking>
-
-You are a GBID converter. Use the following database to convert materials to GBID format.
+        const systemPrompt = `You are a GBID converter. Use the following database to convert materials to GBID format.
 
 DATABASE (CSV format):
 ${csvData}
-
-<thinking>
-Now I need to carefully analyze the specific material request. For each item, I'll:
-1. Identify the exact product type and specifications
-2. Search for matches using multiple approaches
-3. Determine the correct GBID generation method
-4. Calculate quantities precisely
-5. Verify everything before including in the final list
-
-Let me examine each requested item systematically...
-</thinking>
 
 INSTRUCTIONS:
 - For each requested item, first think step by step about which items in the database are the best matches. Consider alternate names, templates, and all relevant columns.
 - Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
-
-<thinking>
-For template processing, I need to be very careful:
-1. Check if there's a gbidTemplate field - if so, substitute sizes/values directly
-2. If gbid field says 'TEMPLATE', look in special notes for the template string
-3. Apply any mapping tables correctly (e.g., color codes, size abbreviations)
-4. Ensure proper formatting with equals signs, asterisks, parentheses as shown in examples
-</thinking>
-
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
 - If the item has a static 'gbid', use it directly.
 - If the item has a GBID field that says 'TEMPLATE', look in the special notes for a template string and substitute the requested size(s) into it to generate the GBID.
 - If the special notes for a template include a mapping table (e.g., color names to abbreviations), use the mapping to substitute the correct abbreviation for each requested value. For example, if the template is '=165(COLOR)4A' and the special notes say GREEN: GR, then for GREEN tape, output '=165GR4A*'.
-
-<thinking>
-For quantity calculations, I must be precise:
-- Footage: convert directly (200' becomes 200)
-- Cuts/rolls: multiply length by number of cuts/rolls
-- Boxes: find qty per box in properties column, then multiply by number of boxes requested
-- Double-check all math before finalizing
-</thinking>
-
 - If there is a footage instead of a qty, input the footage in its place (do not include measurement symbols - for example, 200' should print out as just 200).
 - If there are multiple "cuts" or "rolls" of an item (namely wire), multiply the length by the amount of cuts/rolls to get the final qty (for example, 2 cuts of 400' of wire would become qty 800, 2 rolls of 500' would be qty 1000).
 - Items are normally input as per item - if an item requests a number of boxes, use the properties column to determine how many qty is in each box, then output the total qty as a multiple of that.
@@ -205,19 +135,6 @@ For quantity calculations, I must be precise:
 - Do not hallucinate part numbers if you cannot find them.
 - If you cannot find the item after exhausting all options, write NO BID as the GBID and 1 as the QTY.
 - Only write notes at the end of the message, do not interrupt the list. Do not output anything before the list, all notes go after.
-
-<thinking>
-Before I start processing the actual request, let me remind myself of the critical steps:
-1. Parse each item in the material request carefully
-2. Search database using multiple methods (exact match, alternate names, templates)
-3. If using templates, substitute values correctly and apply any mapping tables
-4. Calculate quantities precisely according to the rules
-5. Format output correctly as GBID[tab]QTY
-6. Save all explanatory notes for the end
-7. Use NO BID only if absolutely cannot find after exhaustive search
-
-Now let me process the specific material request with maximum accuracy...
-</thinking>
 
 Format:
 GBID[tab]QTY
