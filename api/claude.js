@@ -115,7 +115,16 @@ export default async function handler(req, res) {
                 throw new Error(`Pinecone query error: ${pineconeQueryResponse.status} - ${errorText}`);
             }
             const pineconeData = await pineconeQueryResponse.json();
-            const matches = pineconeData.matches || [];
+            let matches = pineconeData.matches || [];
+            // Rerank: prefer matches where name or alternate names include the main type
+            const type = extractType(line);
+            matches = matches.sort((a, b) => {
+                const aMeta = (a.metadata?.name || '') + ' ' + (a.metadata?.alternateNames || '') + ' ' + (a.metadata?.alternate_names || '');
+                const bMeta = (b.metadata?.name || '') + ' ' + (b.metadata?.alternateNames || '') + ' ' + (b.metadata?.alternate_names || '');
+                const aMatch = aMeta.toLowerCase().includes(type);
+                const bMatch = bMeta.toLowerCase().includes(type);
+                return (bMatch ? 1 : 0) - (aMatch ? 1 : 0);
+            });
             allMatches.push(...matches);
         }
         // Deduplicate matches by vector id
@@ -156,6 +165,7 @@ ${csvData}
 
 INSTRUCTIONS:
 - For each requested item, first think step by step about which items in the database are the best matches. Consider alternate names, templates, and all relevant columns.
+- When multiple items have the same size or property, prefer the one whose name or alternate names most closely match the requested item type (e.g., 'bushing' for 'bang on bushing').
 - Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
@@ -230,4 +240,15 @@ GBID[tab]QTY
             error: error.message || 'Internal server error' 
         });
     }
+}
+
+// Re-ranking function: prefer matches where name or alternate names include the main type from the request line
+function extractType(line) {
+    // Simple heuristic: last word longer than 3 chars, or last word
+    const words = line.split(/\s+/).map(w => w.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()).filter(Boolean);
+    if (words.length === 0) return '';
+    for (let i = words.length - 1; i >= 0; --i) {
+        if (words[i].length > 3) return words[i];
+    }
+    return words[words.length - 1];
 }
