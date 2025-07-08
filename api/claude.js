@@ -125,7 +125,8 @@ export default async function handler(req, res) {
                 const bMatch = bMeta.toLowerCase().includes(type);
                 return (bMatch ? 1 : 0) - (aMatch ? 1 : 0);
             });
-            allMatches.push(...matches);
+            // Only take the top 5 matches for this line
+            allMatches.push(...matches.slice(0, 5));
         }
         // Deduplicate matches by vector id
         const seen = new Set();
@@ -166,6 +167,7 @@ ${csvData}
 INSTRUCTIONS:
 - For each requested item, first think step by step about which items in the database are the best matches. Consider alternate names, templates, and all relevant columns.
 - When multiple items have the same size or property, prefer the one whose name or alternate names most closely match the requested item type (e.g., 'bushing' for 'bang on bushing').
+- If an item in the database has a name that exactly matches the requested item, always prefer that item over others, even if other properties are similar.
 - Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
