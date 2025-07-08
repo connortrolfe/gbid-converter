@@ -40,7 +40,7 @@ export default async function handler(req, res) {
         // Step 0: Use Claude to split the input into discrete items
         const splitPrompt = `Given the following request, list each distinct material or item as a separate line, one per line, with no extra text or explanation. Only output the list, no commentary.\n\nRequest:\n${materialInput}`;
         const splitPayload = {
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-3-haiku-20240307',
             max_tokens: 1024,
             system: [
                 {
