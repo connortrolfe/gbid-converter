@@ -137,15 +137,17 @@ export default async function handler(req, res) {
         });
         console.log(`Merged and deduped to ${dedupedMatches.length} unique matches`);
         // Step 3: Convert deduped Pinecone results to CSV format
-        let csvData = 'GBID,GBID Template,Description,Properties,Alternate Names,Special Notes\n';
+        let csvData = 'Name,GBID,GBID Template,Description,Properties,Alternate Names,Special Notes\n';
         dedupedMatches.forEach(match => {
             const metadata = match.metadata || {};
+            const name = metadata.name || '';
             const gbid = metadata.gbid || '';
             const gbidTemplate = metadata.gbidTemplate || '';
             const description = metadata.description || '';
             const properties = metadata.properties || '';
-            const alternateNames = metadata.alternateNames || '';
-            const specialNotes = metadata.specialNotes || '';
+            // Use both alternateNames and alternate_names for robustness
+            const alternateNames = metadata.alternateNames || metadata.alternate_names || '';
+            const specialNotes = metadata.specialNotes || metadata.special_notes || '';
             // Escape CSV values (handle commas and quotes)
             const escapeCsv = (value) => {
                 if (typeof value !== 'string') return '';
@@ -154,7 +156,7 @@ export default async function handler(req, res) {
                 }
                 return value;
             };
-            csvData += `${escapeCsv(gbid)},${escapeCsv(gbidTemplate)},${escapeCsv(description)},${escapeCsv(properties)},${escapeCsv(alternateNames)},${escapeCsv(specialNotes)}\n`;
+            csvData += `${escapeCsv(name)},${escapeCsv(gbid)},${escapeCsv(gbidTemplate)},${escapeCsv(description)},${escapeCsv(properties)},${escapeCsv(alternateNames)},${escapeCsv(specialNotes)}\n`;
         });
         console.log('Claude CSV Data:\n', csvData);
 
@@ -167,7 +169,7 @@ ${csvData}
 INSTRUCTIONS:
 - For each requested item, first think step by step about which items in the database are the best matches. Consider alternate names, templates, and all relevant columns.
 - When multiple items have the same size or property, prefer the one whose name or alternate names most closely match the requested item type (e.g., 'bushing' for 'bang on bushing').
-- If an item in the database has a name that exactly matches the requested item, always prefer that item over others, even if other properties are similar.
+- If an item in the database has a Name that exactly matches the requested item, always prefer that item over others, even if other properties are similar.
 - Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
