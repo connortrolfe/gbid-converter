@@ -123,6 +123,7 @@ INSTRUCTIONS:
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
 - If the item has a static 'gbid', use it directly.
 - If the item has a GBID field that says 'TEMPLATE', look in the special notes for a template string and substitute the requested size(s) into it to generate the GBID.
+- If the special notes for a template include a mapping table (e.g., color names to abbreviations), use the mapping to substitute the correct abbreviation for each requested value. For example, if the template is '=165(COLOR)4A' and the special notes say GREEN: GR, then for GREEN tape, output '=165GR4A*'.
 - If there is a footage instead of a qty, input the footage in its place (do not include measurement symbols - for example, 200' should print out as just 200).
 - If there are multiple "cuts" or "rolls" of an item (namely wire), multiply the length by the amount of cuts/rolls to get the final qty (for example, 2 cuts of 400' of wire would become qty 800, 2 rolls of 500' would be qty 1000).
 - Items are normally input as per item - if an item requests a number of boxes, use the properties column to determine how many qty is in each box, then output the total qty as a multiple of that.
