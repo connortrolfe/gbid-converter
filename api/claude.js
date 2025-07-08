@@ -134,7 +134,7 @@ INSTRUCTIONS:
 - Search online for alternate or slang terms if necessary.
 - Do not hallucinate part numbers if you cannot find them.
 - If you cannot find the item after exhausting all options, write NO BID as the GBID and 1 as the QTY.
-- Only write notes at the end of the message, do not interrupt the list.
+- Only write notes at the end of the message, do not interrupt the list. Do not output anything before the list, all notes go after.
 
 Format:
 GBID[tab]QTY
