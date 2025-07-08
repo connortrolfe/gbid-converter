@@ -85,11 +85,12 @@ export default async function handler(req, res) {
         console.log(`Found ${matches.length} similar items in Pinecone`);
 
         // Step 3: Convert Pinecone results to CSV format
-        let csvData = 'GBID,Description,Properties,Alternate Names,Special Notes\n';
+        let csvData = 'GBID,GBID Template,Description,Properties,Alternate Names,Special Notes\n';
         
         matches.forEach(match => {
             const metadata = match.metadata || {};
             const gbid = metadata.gbid || '';
+            const gbidTemplate = metadata.gbidTemplate || '';
             const description = metadata.description || '';
             const properties = metadata.properties || '';
             const alternateNames = metadata.alternateNames || '';
@@ -97,14 +98,17 @@ export default async function handler(req, res) {
             
             // Escape CSV values (handle commas and quotes)
             const escapeCsv = (value) => {
+                if (typeof value !== 'string') return '';
                 if (value.includes(',') || value.includes('"') || value.includes('\n')) {
                     return `"${value.replace(/"/g, '""')}"`;
                 }
                 return value;
             };
 
-            csvData += `${escapeCsv(gbid)},${escapeCsv(description)},${escapeCsv(properties)},${escapeCsv(alternateNames)},${escapeCsv(specialNotes)}\n`;
+            csvData += `${escapeCsv(gbid)},${escapeCsv(gbidTemplate)},${escapeCsv(description)},${escapeCsv(properties)},${escapeCsv(alternateNames)},${escapeCsv(specialNotes)}\n`;
         });
+
+        console.log('Claude CSV Data:\n', csvData);
 
         // Step 4: Prepare Claude API request with Pinecone data
         const systemPrompt = `You are a GBID converter. Use the following database to convert materials to GBID format.\n\nDATABASE (CSV format):\n${csvData}\n\nINSTRUCTIONS:\nGive me a list of GBIDs based on the following format, using my GBID database as data. If an item contains specifications, such as sizes, search broadly first.\n\nIf you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.\n\nIf the item has a static 'gbid', use it directly.\nIf the item has a GBID field that says 'TEMPLATE', look in the special notes for a template string and substitute the requested size(s) into it to generate the GBID.\n\nIf there is a footage instead of a qty, input the footage in its place (do not include measurement symbols - for example, 200' should print out as just 200). If there are multiple "cuts" or "rolls" of an item (namely wire), multiply the length by the amount of cuts/rolls to get the final qty (for example, 2 cuts of 400' of wire would become qty 800, 2 rolls of 500' would be qty 1000). Items are normally input as per item - if an item requests a number of boxes, use the properties column to determine how many qty is in each box, then output the total qty as a multiple of that. If an item has a size, such as 2" rigid conduit, search for the item first, then the size within the GBID field. Only write notes at the end of the message, do not interrupt the list. Assume standard for all parts unless specified. Use the "alternate names" column to find the closest name for items with names that do not match. Read the special notes column for all items before output to determine which part numbers are usually standard or if there are any special instructions. Read through every line and every column regardless of whether or not the item is present in the request. Search online for alternate or slang terms if necessary. Do not hallucinate part numbers if you cannot find them. If you cannot find the item after exhausting all options, write NO BID as the GBID and 1 as the QTY.\n\nGBID[tab]QTY\nGBID[tab]QTY\nGBID[tab]QTY`;
