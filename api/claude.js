@@ -45,8 +45,7 @@ export default async function handler(req, res) {
             system: [
                 {
                     type: 'text',
-                    text: 'You are a helpful assistant for parsing material lists.',
-                    cache_control: { type: 'ephemeral' }
+                    text: 'You are a helpful assistant for parsing material lists.'
                 }
             ],
             messages: [
@@ -201,8 +200,7 @@ GBID[tab]QTY
             system: [
                 {
                     type: 'text',
-                    text: systemPrompt,
-                    cache_control: { type: 'ephemeral' }
+                    text: systemPrompt
                 }
             ],
             messages: [
