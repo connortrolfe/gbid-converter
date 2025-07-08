@@ -172,6 +172,7 @@ INSTRUCTIONS:
 - If none of the items in the database have a Name or Alternate Names that are reasonably close to the requested item, output NO BID for that item. Do not select items based only on similar properties or sizes if the name/type does not match. Only output a match if you are confident it is the correct item; otherwise, output NO BID.
 - Then, give me a list of GBIDs based on the following format, using my GBID database as data.
 - If an item contains specifications, such as sizes, search broadly first.
+- Assume copper for all wire unless specified as aluminum.
 - If you find a row with a 'gbidTemplate' field, use the template to generate the GBID by substituting the requested size(s) into the template. For example, if the gbidTemplate is '=ASE(SIZE)X(SIZE)X(SIZE)*' and the user requests an 8x8x6 j box, output '=ASE8X8X6*' as the GBID.
 - If the item has a static 'gbid', use it directly.
 - If there is a footage instead of a qty, input the footage in its place (do not include measurement symbols - for example, 200' should print out as just 200).
