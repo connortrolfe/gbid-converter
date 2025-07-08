@@ -1,3 +1,5 @@
+# THIS IS A NIGHTLY BUILD
+
 # GBID Materials Converter
 
 A web-based tool for converting material lists to GBID format using Pinecone vector database and Claude AI.
